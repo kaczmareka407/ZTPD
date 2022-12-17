@@ -1,0 +1,112 @@
+DROP TABLE DOKUMENTY
+--1
+CREATE TABLE DOKUMENTY(
+ID NUMBER(12) PRIMARY KEY,
+DOKUMENT CLOB
+)
+select * FROM DOKUMENTY
+
+--2
+DECLARE
+counter NUMBER := 0;
+tekst CLOB := '';
+BEGIN
+    LOOP
+        counter := counter + 1;
+        tekst := CONCAT(tekst,'Oto tekst. ');
+        
+        IF counter > 10000 THEN
+            EXIT;
+        END IF;
+    END LOOP;
+    INSERT INTO DOKUMENTY values(1,tekst);
+END;
+
+--3
+SELECT * FROM DOKUMENTY
+SELECT ID, UPPER(DOKUMENT) AS UPPER_TEKXT from DOKUMENTY
+SELECT ID, LENGTH(DOKUMENT) AS LENGTH_TEKXT from DOKUMENTY
+SELECT ID, DBMS_LOB.GETLENGTH(DOKUMENT) from DOKUMENTY
+SELECT ID, SUBSTR(DOKUMENT,5,1000) FROM DOKUMENTY
+SELECT ID, DBMS_LOB.SUBSTR(DOKUMENT,1000,5) from DOKUMENTY
+
+--4
+INSERT INTO DOKUMENTY VALUES (2, EMPTY_CLOB())
+--5
+INSERT INTO DOKUMENTY VALUES (3, NULL)
+COMMIT
+
+--6
+SELECT * FROM DOKUMENTY
+
+--7
+SELECT DIRECTORY_NAME, DIRECTORY_PATH FROM ALL_DIRECTORIES
+
+--8
+DECLARE
+lobd1 clob;
+fils BFILE := BFILENAME('ZSBD_DIR','dokument.txt');
+doffset integer := 1;
+soffset integer := 1;
+langctx integer := 0;
+warn integer := null;
+BEGIN
+    SELECT DOKUMENT INTO lobd1 from DOKUMENTY WHERE id=2
+    FOR UPDATE;
+    DBMS_LOB.fileopen(fils, DBMS_LOB.file_readonly);
+    DBMS_LOB.LOADCLOBFROMFILE(lobd1, fils, DBMS_LOB.GETLENGTH(fils),
+    doffset, soffset, 873, langctx, warn);
+    DBMS_LOB.FILECLOSE(fils);
+    COMMIT;
+    DBMS_OUTPUT.PUT_LINE('Status operation: '||warn);
+END;
+
+--9
+update DOKUMENTY  set DOKUMENT=TO_CLOB(BFILENAME('ZSBD_DIR','dokument.txt'))  where id = 3;
+
+--10
+select * FROM DOKUMENTY
+--11
+SELECT ID, DBMS_LOB.GETLENGTH(DOKUMENT) from DOKUMENTY
+--12
+DROP TABLE DOKUMENTY
+
+
+
+--13
+CREATE OR REPLACE PROCEDURE CLOB_CENSOR (lobd IN OUT clob, toReplace VARCHAR2)
+IS 
+position NUMBER;
+newText VARCHAR2(100) := '..................................................';
+BEGIN
+    LOOP
+        position := DBMS_LOB.INSTR(lobd, toReplace);
+        IF position = 0 THEN
+            EXIT;
+        END IF;
+        DBMS_LOB.WRITE(lobd, length(toReplace), position, newText);
+    END LOOP;
+END;
+
+
+--14
+CREATE TABLE BIOGRAPHIES_COPIED
+AS
+SELECT *
+FROM ZSBD_TOOLS.BIOGRAPHIES;
+
+SELECT * FROM BIOGRAPHIES_COPIED;
+
+DECLARE
+    biog clob;
+BEGIN
+    SELECT BIO INTO biog FROM BIOGRAPHIES_COPIED
+    FOR UPDATE;
+    CLOB_CENSOR(biog, 'Cimrman');
+    COMMIT;
+END;
+
+SELECT * FROM BIOGRAPHIES_COPIED;
+
+--15
+DROP TABLE BIOGRAPHIES_COPIED;
